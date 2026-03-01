@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Latoto - High Fidelity Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        
+        .card-stack {
+            perspective: 1000px;
+        }
+        
+        .swipe-card {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            touch-action: none;
+        }
+        
+        .dragging {
+            transition: none;
+        }
+
+        /* Overlay text shadow for better readability */
+        .text-shadow {
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen w-screen overflow-hidden select-none">
+    <div id="app" class="h-full w-full flex flex-col relative max-w-md mx-auto bg-white shadow-xl overflow-hidden">
+        
+        <!-- Top Bar -->
+        <header class="flex justify-between items-center px-4 py-3 z-50 bg-white/90 backdrop-blur-sm sticky top-0">
+            <!-- Left: Current Mode -->
+            <div class="flex flex-col">
+                <h1 class="text-xl font-bold text-gray-800 tracking-wide">
+                    {{ currentModeText }}
+                </h1>
+                <span v-if="isShuffleLocked" class="text-xs text-blue-500 font-medium">
+                    <i class="fas fa-lock mr-1"></i>锁定随机
+                </span>
+            </div>
+
+            <!-- Right: Actions -->
+            <div class="flex items-center space-x-4">
+                <!-- Shuffle Button (Click / Long Press) -->
+                <button 
+                    @click="handleShuffleClick" 
+                    @touchstart="startShufflePress" 
+                    @touchend="endShufflePress"
+                    @mousedown="startShufflePress" 
+                    @mouseup="endShufflePress"
+                    class="p-2 rounded-full hover:bg-gray-100 transition-colors relative group"
+                    :class="{'text-blue-600 bg-blue-50': isShuffleMode}"
+                >
+                    <i class="fas fa-random text-lg"></i>
+                    <!-- Tooltip for demo -->
+                    <span class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        长按锁定
+                    </span>
+                </button>
+
+                <!-- Trash Bin (Nav to Trash) -->
+                <button @click="currentView = 'trash'" class="p-2 rounded-full hover:bg-gray-100 transition-colors relative">
+                    <i class="fas fa-trash text-lg text-gray-600"></i>
+                    <span v-if="trashCount > 0" class="absolute top-0 right-0 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                        {{ trashCount }}
+                    </span>
+                </button>
+
+                <!-- Pending (Nav to Pending) -->
+                <button @click="currentView = 'pending'" class="p-2 rounded-full hover:bg-gray-100 transition-colors relative">
+                    <i class="fas fa-hourglass-half text-lg text-gray-600"></i>
+                    <span v-if="pendingCount > 0" class="absolute top-0 right-0 bg-yellow-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                        {{ pendingCount }}
+                    </span>
+                </button>
+
+                <!-- Settings -->
+                <button class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-cog text-lg text-gray-600"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 relative w-full h-full overflow-hidden bg-gray-50">
+            
+            <!-- VIEW: Card Stack (Home) -->
+            <div v-if="currentView === 'home'" class="absolute inset-0 flex items-center justify-center p-4">
+                
+                <!-- Empty State -->
+                <div v-if="displayList.length === 0" class="text-center text-gray-400 flex flex-col items-center">
+                    <i class="fas fa-check-circle text-6xl mb-4 text-green-100"></i>
+                    <p class="text-lg">没有更多媒体了</p>
+                    <button @click="resetDemo" class="mt-6 px-6 py-2 bg-blue-500 text-white rounded-full text-sm shadow-lg hover:bg-blue-600 transition">
+                        重置演示数据
+                    </button>
+                </div>
+
+                <!-- Cards -->
+                <div v-else class="relative w-full h-full max-h-[85vh] card-stack">
+                    <!-- Only render top few cards for performance -->
+                    <div 
+                        v-for="(item, index) in visibleCards" 
+                        :key="item.id"
+                        class="absolute inset-0 w-full h-full bg-black rounded-3xl shadow-2xl overflow-hidden swipe-card origin-bottom"
+                        :class="{ 'dragging': index === 0 && isDragging }"
+                        :style="getCardStyle(index)"
+                        @mousedown="startDrag"
+                        @touchstart="startDrag"
+                    >
+                        <!-- Media Content -->
+                        <div class="relative w-full h-full">
+                            <img 
+                                :src="item.url" 
+                                class="w-full h-full object-cover pointer-events-none"
+                                alt="Media"
+                            >
+                            
+                            <!-- Video Indicator -->
+                            <div v-if="item.type === 'video'" class="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-white text-xs font-medium flex items-center">
+                                <i class="fas fa-play mr-1.5 text-[10px]"></i> {{ item.duration }}
+                            </div>
+
+                            <!-- Live/HDR Tags (Top Left) -->
+                            <div class="absolute top-4 left-4 flex space-x-2">
+                                <span v-if="item.isHDR" class="bg-gray-800/60 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-white/20">HDR</span>
+                                <span v-if="item.isLive" class="bg-yellow-500/80 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider flex items-center">
+                                    <i class="fas fa-bullseye mr-1 text-[8px]"></i> Live
+                                </span>
+                            </div>
+
+                            <!-- Metadata Overlay (Bottom Left) -->
+                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-20 pb-6 px-5 text-white">
+                                <div class="flex flex-col space-y-1">
+                                    <div class="text-2xl font-light tracking-tight text-shadow">{{ item.date }}</div>
+                                    <div class="flex items-center text-sm font-medium opacity-90 text-shadow">
+                                        <i class="fas fa-map-marker-alt mr-2 text-red-400"></i>
+                                        {{ item.location || '未知地点' }}
+                                    </div>
+                                    <div class="text-xs opacity-60 font-mono mt-1">{{ item.size }} MB</div>
+                                </div>
+                            </div>
+
+                            <!-- Action Indicators (Visible during drag) -->
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200" :style="{ opacity: dragOpacity.delete }">
+                                <div class="bg-red-500/80 rounded-full p-6 text-white transform scale-150">
+                                    <i class="fas fa-trash text-4xl"></i>
+                                </div>
+                            </div>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200" :style="{ opacity: dragOpacity.pending }">
+                                <div class="bg-yellow-500/80 rounded-full p-6 text-white transform scale-150">
+                                    <i class="fas fa-hourglass-half text-4xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Hint/Controls (Optional) -->
+                <div v-if="displayList.length > 0" class="absolute bottom-6 left-0 right-0 flex justify-center space-x-12 opacity-40 pointer-events-none">
+                    <div class="flex flex-col items-center">
+                        <i class="fas fa-chevron-up mb-1 animate-bounce"></i>
+                        <span class="text-[10px]">删除</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <i class="fas fa-chevron-down mt-1 animate-bounce"></i>
+                        <span class="text-[10px]">待定</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: Trash Bin -->
+            <div v-else-if="currentView === 'trash'" class="h-full flex flex-col bg-white">
+                <div class="flex items-center p-4 border-b">
+                    <button @click="currentView = 'home'" class="p-2 -ml-2 text-gray-600">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
+                    <h2 class="text-lg font-bold ml-2">虚拟回收站</h2>
+                    <div class="ml-auto text-sm text-gray-500">{{ trashList.length }} 项</div>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-2 grid grid-cols-3 gap-1 content-start">
+                    <div v-for="item in trashList" :key="item.id" class="aspect-square relative group bg-gray-100">
+                        <img :src="item.url" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                            <button @click="restoreItem(item, 'trash')" class="text-white bg-green-500 p-1.5 rounded-full text-xs">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                            <button @click="permanentlyDelete(item)" class="text-white bg-red-500 p-1.5 rounded-full text-xs">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="trashList.length === 0" class="col-span-3 py-20 text-center text-gray-400">
+                        <i class="fas fa-trash-alt text-4xl mb-2 opacity-30"></i>
+                        <p>回收站是空的</p>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t bg-gray-50 flex justify-between">
+                    <button @click="restoreAllTrash" class="text-blue-600 text-sm font-medium" :disabled="trashList.length === 0">全部恢复</button>
+                    <button @click="emptyTrash" class="text-red-600 text-sm font-medium" :disabled="trashList.length === 0">一键清空</button>
+                </div>
+            </div>
+
+            <!-- VIEW: Pending List -->
+            <div v-else-if="currentView === 'pending'" class="h-full flex flex-col bg-white">
+                <div class="flex items-center p-4 border-b">
+                    <button @click="currentView = 'home'" class="p-2 -ml-2 text-gray-600">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
+                    <h2 class="text-lg font-bold ml-2">待定列表</h2>
+                    <div class="ml-auto text-sm text-gray-500">{{ pendingList.length }} 项</div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-2 grid grid-cols-3 gap-1 content-start">
+                    <div v-for="item in pendingList" :key="item.id" class="aspect-square relative group bg-gray-100">
+                        <img :src="item.url" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                            <button @click="restoreItem(item, 'pending')" class="text-white bg-blue-500 p-1.5 rounded-full text-xs">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="pendingList.length === 0" class="col-span-3 py-20 text-center text-gray-400">
+                        <i class="fas fa-hourglass text-4xl mb-2 opacity-30"></i>
+                        <p>没有待定项目</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                // State
+                const currentView = ref('home'); // home, trash, pending
+                const isShuffleMode = ref(false);
+                const isShuffleLocked = ref(false);
+                const mediaList = ref([]); // Full database
+                const trashList = ref([]);
+                const pendingList = ref([]);
+                const shuffleTimer = ref(null);
+
+                // Dragging State
+                const isDragging = ref(false);
+                const startPos = ref({ x: 0, y: 0 });
+                const currentPos = ref({ x: 0, y: 0 });
+                const dragOpacity = ref({ delete: 0, pending: 0 });
+                const cardTransform = ref('');
+
+                // Mock Data Generator
+                const generateData = () => {
+                    const locations = ['中国·重庆', '中国·北京', '日本·东京', '美国·纽约', null];
+                    const items = [];
+                    for (let i = 0; i < 30; i++) {
+                        items.push({
+                            id: i,
+                            url: `https://picsum.photos/600/1000?random=${i}`,
+                            date: new Date(Date.now() - i * 86400000).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+                            location: locations[Math.floor(Math.random() * locations.length)],
+                            size: (Math.random() * 5 + 0.5).toFixed(1),
+                            type: Math.random() > 0.8 ? 'video' : 'photo',
+                            duration: '0:15',
+                            isHDR: Math.random() > 0.7,
+                            isLive: Math.random() > 0.6,
+                            status: 'active' // active, trash, pending
+                        });
+                    }
+                    return items;
+                };
+
+                // Initialize
+                onMounted(() => {
+                    mediaList.value = generateData();
+                });
+
+                // Computed
+                const displayList = computed(() => {
+                    // Filter active items
+                    let active = mediaList.value.filter(m => m.status === 'active');
+                    
+                    if (isShuffleMode.value) {
+                        // In real app, we would shuffle. Here we just take a slice for demo stability or shuffle
+                        // Ideally shuffle should be static until refreshed
+                        return active; // Simplified for prototype
+                    }
+                    return active; // Recent order (default)
+                });
+
+                const visibleCards = computed(() => {
+                    return displayList.value.slice(0, 3); // Show top 3
+                });
+
+                const currentModeText = computed(() => {
+                    return isShuffleMode.value ? '随机模式' : '最近模式';
+                });
+
+                const trashCount = computed(() => trashList.value.length);
+                const pendingCount = computed(() => pendingList.value.length);
+
+                // Actions
+                const handleShuffleClick = () => {
+                    if (isShuffleLocked.value) {
+                        isShuffleLocked.value = false;
+                        isShuffleMode.value = false;
+                    } else {
+                        // Single click: Random 15 then back to recent
+                        isShuffleMode.value = true;
+                        // Sort randomly
+                        mediaList.value.sort(() => Math.random() - 0.5);
+                        
+                        // If not locked, revert after some interaction? 
+                        // PRD says: "After completion silently switch back". 
+                        // We'll simulate this by just shuffling the list.
+                    }
+                };
+
+                const startShufflePress = () => {
+                    shuffleTimer.value = setTimeout(() => {
+                        isShuffleLocked.value = true;
+                        isShuffleMode.value = true;
+                        // Lock feedback could be added here
+                    }, 800);
+                };
+
+                const endShufflePress = () => {
+                    if (shuffleTimer.value) clearTimeout(shuffleTimer.value);
+                };
+
+                // Drag / Swipe Logic
+                const startDrag = (e) => {
+                    isDragging.value = true;
+                    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                    startPos.value = { x: clientX, y: clientY };
+                    
+                    // Add listeners for move/end
+                    if (e.type.includes('mouse')) {
+                        window.addEventListener('mousemove', onDrag);
+                        window.addEventListener('mouseup', endDrag);
+                    } else {
+                        window.addEventListener('touchmove', onDrag);
+                        window.addEventListener('touchend', endDrag);
+                    }
+                };
+
+                const onDrag = (e) => {
+                    if (!isDragging.value) return;
+                    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                    
+                    const deltaX = clientX - startPos.value.x;
+                    const deltaY = clientY - startPos.value.y;
+                    currentPos.value = { x: deltaX, y: deltaY };
+
+                    // Rotation based on X
+                    const rotate = deltaX * 0.1;
+                    cardTransform.value = `translate(${deltaX}px, ${deltaY}px) rotate(${rotate}deg)`;
+
+                    // Opacity indicators
+                    // Up -> Delete (Negative Y)
+                    if (deltaY < -50) {
+                        dragOpacity.value.delete = Math.min(Math.abs(deltaY + 50) / 100, 1);
+                        dragOpacity.value.pending = 0;
+                    } 
+                    // Down -> Pending (Positive Y)
+                    else if (deltaY > 50) {
+                        dragOpacity.value.pending = Math.min(Math.abs(deltaY - 50) / 100, 1);
+                        dragOpacity.value.delete = 0;
+                    } else {
+                        dragOpacity.value = { delete: 0, pending: 0 };
+                    }
+                };
+
+                const endDrag = () => {
+                    if (!isDragging.value) return;
+                    isDragging.value = false;
+                    
+                    // Remove listeners
+                    window.removeEventListener('mousemove', onDrag);
+                    window.removeEventListener('mouseup', endDrag);
+                    window.removeEventListener('touchmove', onDrag);
+                    window.removeEventListener('touchend', endDrag);
+
+                    const { x, y } = currentPos.value;
+                    const threshold = 100; // px to trigger action
+
+                    if (y < -threshold) {
+                        // Swipe Up -> Delete
+                        handleAction('delete');
+                    } else if (y > threshold) {
+                        // Swipe Down -> Pending
+                        handleAction('pending');
+                    } else if (Math.abs(x) > threshold) {
+                        // Swipe Left/Right -> Next/Prev (Just skip for now or logic?)
+                        // PRD says Left/Right -> Switch. We'll treat as "Skip" (Keep in active but move to back?)
+                        // For simplicity in this stack model, let's just move it to end of list
+                        handleAction('skip');
+                    } else {
+                        // Reset
+                        resetCard();
+                    }
+                };
+
+                const handleAction = (action) => {
+                    // Animation out
+                    const currentItem = displayList.value[0];
+                    if (!currentItem) return;
+
+                    // Apply visual exit
+                    let exitTransform = '';
+                    if (action === 'delete') exitTransform = 'translate(0, -150vh)';
+                    else if (action === 'pending') exitTransform = 'translate(0, 150vh)';
+                    else if (action === 'skip') exitTransform = `translate(${currentPos.value.x > 0 ? '150vw' : '-150vw'}, 0)`;
+
+                    cardTransform.value = exitTransform;
+
+                    // Wait for animation then update state
+                    setTimeout(() => {
+                        if (action === 'delete') {
+                            currentItem.status = 'trash';
+                            trashList.value.push(currentItem);
+                        } else if (action === 'pending') {
+                            currentItem.status = 'pending';
+                            pendingList.value.push(currentItem);
+                        } else if (action === 'skip') {
+                            // Move to end of list
+                            const index = mediaList.value.indexOf(currentItem);
+                            if (index > -1) {
+                                mediaList.value.push(mediaList.value.splice(index, 1)[0]);
+                            }
+                        }
+                        
+                        // Reset for next card
+                        resetCard();
+                    }, 200);
+                };
+
+                const resetCard = () => {
+                    cardTransform.value = '';
+                    currentPos.value = { x: 0, y: 0 };
+                    dragOpacity.value = { delete: 0, pending: 0 };
+                };
+
+                const getCardStyle = (index) => {
+                    if (index === 0) {
+                        return {
+                            transform: cardTransform.value || 'scale(1)',
+                            zIndex: 10
+                        };
+                    }
+                    // Stack effect
+                    const scale = 1 - (index * 0.05);
+                    const translateY = index * 10;
+                    return {
+                        transform: `scale(${scale}) translateY(${translateY}px)`,
+                        zIndex: 10 - index,
+                        opacity: 1 - (index * 0.2)
+                    };
+                };
+
+                // Trash/Pending Management
+                const restoreItem = (item, from) => {
+                    item.status = 'active';
+                    if (from === 'trash') {
+                        trashList.value = trashList.value.filter(i => i.id !== item.id);
+                    } else {
+                        pendingList.value = pendingList.value.filter(i => i.id !== item.id);
+                    }
+                    // Add back to active list (at top)
+                    // We need to find where to insert or just push? 
+                    // Ideally sort by date again, but for now push to front
+                    // mediaList is the source of truth, we just changed status.
+                };
+
+                const permanentlyDelete = (item) => {
+                    trashList.value = trashList.value.filter(i => i.id !== item.id);
+                    mediaList.value = mediaList.value.filter(i => i.id !== item.id);
+                    // PRD: "Physical Sync" would happen here
+                };
+
+                const emptyTrash = () => {
+                    const idsToRemove = trashList.value.map(i => i.id);
+                    mediaList.value = mediaList.value.filter(i => !idsToRemove.includes(i.id));
+                    trashList.value = [];
+                };
+
+                const restoreAllTrash = () => {
+                    trashList.value.forEach(item => item.status = 'active');
+                    trashList.value = [];
+                };
+
+                const resetDemo = () => {
+                    mediaList.value = generateData();
+                    trashList.value = [];
+                    pendingList.value = [];
+                };
+
+                return {
+                    currentView,
+                    currentModeText,
+                    isShuffleMode,
+                    isShuffleLocked,
+                    trashCount,
+                    pendingCount,
+                    displayList,
+                    visibleCards,
+                    trashList,
+                    pendingList,
+                    // Actions
+                    handleShuffleClick,
+                    startShufflePress,
+                    endShufflePress,
+                    // Drag
+                    isDragging,
+                    startDrag,
+                    getCardStyle,
+                    dragOpacity,
+                    // Management
+                    restoreItem,
+                    permanentlyDelete,
+                    emptyTrash,
+                    restoreAllTrash,
+                    resetDemo
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
