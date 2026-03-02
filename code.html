@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html class="dark" lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Latoto - 极致照片整理</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec1313", // Unified primary from the brand color instruction
+                        "brand-blue": "#13c8ec", // From later screens
+                        "danger": "#ff4d4f",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#0a0a0a",
+                        "badge-red": "#FF3B30",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1.25rem",
+                        "3xl": "2.5rem",
+                        "4xl": "2.5rem",
+                        "5xl": "3rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass-label {
+                @apply backdrop-blur-xl bg-black/40 border border-white/10 text-white/95 text-[10px] font-bold tracking-wider px-2 py-1 rounded-lg flex items-center gap-1 shadow-lg;
+            }
+            .notification-badge {
+                @apply absolute -top-1 -right-1 bg-badge-red text-white text-[10px] font-bold min-w-[16px] h-[16px] flex items-center justify-center rounded-full px-1 border border-background-dark;
+            }
+        }
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-40px); }
+        }
+        .animate-bounce-slow {
+            animation: bounce-slow 2s infinite ease-in-out;
+        }
+        @keyframes bounce-slow-down {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(24px); }
+        }
+        .animate-bounce-slow-down {
+            animation: bounce-slow-down 2s infinite ease-in-out;
+        }
+        .glow-red { text-shadow: 0 0 15px rgba(239, 68, 68, 0.9); }
+        .glow-blue { text-shadow: 0 0 15px rgba(19, 200, 236, 0.9); }
+        
+        .custom-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 3px;
+            outline: none;
+        }
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            background-image: radial-gradient(circle, #13c8ec 21.6%, transparent 23.6%);
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        body {
+            min-height: 100dvh;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden">
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        const { MemoryRouter, Routes, Route, Link, useNavigate } = ReactRouterDOM;
+
+        // --- Screen 1: Onboarding - Swipe Up ---
+        const OnboardingSwipeUp = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-screen w-full flex-col bg-background-dark overflow-hidden" onClick={() => navigate('/onboarding-2')}>
+                    <div className="flex flex-col items-center px-6 pt-16 pb-6 text-center shrink-0">
+                        <h1 className="text-slate-100 tracking-tight text-3xl font-bold leading-tight mb-3">上滑标记删除</h1>
+                        <p className="text-slate-400 text-lg font-normal leading-normal">轻松清理无用照片</p>
+                    </div>
+                    <div className="flex-grow flex flex-col items-center justify-center px-6 relative">
+                        <div className="relative w-full max-w-[360px] aspect-[10/14] rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden bg-slate-800 border border-white/10">
+                            <div className="w-full h-full bg-center bg-cover" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAgENcVwHBHf6c0cc2bQ4vCShjP6yYxKnLvWPHC_36OVVSPrMP_rB_oaxTj5qIcV_lEnQP1PKxZssqMsCSVPksjA47If9qMgH39chwTMzy0uvlplb81aMh5z5ArSF_4riN5PbNoi0cEZh17lO9Bdyg0f9MqDsGpscb8f_qiqAzKFO3RijYfgFHEbGCHoGD2IY7RU9HZXBRk5ERGNbzWgNX-Km39BwKRKmUPF3NDc7dlk3nYFTl2c0V1QsCRgCeD63l4xIcjN-RERNmY")'}}></div>
+                            <div className="absolute inset-0 flex items-start justify-center pt-[25%]">
+                                <div className="flex flex-col items-center animate-bounce-slow">
+                                    <span className="material-symbols-outlined text-primary text-8xl font-bold drop-shadow-[0_0_25px_rgba(236,19,19,0.8)]">keyboard_double_arrow_up</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="pb-16 flex flex-col items-center w-full shrink-0">
+                        <div className="flex flex-row items-center justify-center gap-3">
+                            <div className="h-1.5 w-6 rounded-full bg-primary"></div>
+                            <div className="h-1.5 w-1.5 rounded-full bg-slate-700"></div>
+                            <div className="h-1.5 w-1.5 rounded-full bg-slate-700"></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 2: Onboarding - Swipe Down ---
+        const OnboardingSwipeDown = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-screen w-full flex-col bg-background-dark overflow-hidden" onClick={() => navigate('/onboarding-3')}>
+                    <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12">
+                        <div className="relative w-full max-w-[360px] aspect-[4/5] rounded-[3rem] shadow-[0_40px_80px_rgba(0,0,0,0.8)] overflow-hidden bg-slate-900 border border-white/10 mb-20">
+                            <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_p-mMtZDn6dCOC9LUUZn3zZkWTCZVL_a-kik1fS7jVnIr2LpiFeM7Up-6Hm3a5AR2ocEBspf3-o1EHMPSy6wxLk4HYBOSJss8UJ4WDgUVLngyd7pAj_J5Fc0d_HWEKMDzUw94M0c_eX8qM8sy8M_M9wzzIwOonyOqpdWSzPQSN9PGwaFBDTsvvzOi5dufnsWPTy_RpkIUPIHLNGpmZCLATxujDxlS5jN2ukOy1-B1vQaEgvhHZwrRR3prVj50980ZWqbTaWUhhkPO" />
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/60"></div>
+                            <div className="absolute inset-0 flex items-center justify-center pt-[30%]">
+                                <div className="flex flex-col items-center animate-bounce-slow-down">
+                                    <span className="material-symbols-outlined text-brand-blue text-[100px] font-bold drop-shadow-[0_0_30px_rgba(59,130,246,0.8)]">keyboard_double_arrow_down</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center text-center">
+                            <h1 className="text-white tracking-tight text-3xl font-bold leading-tight mb-4">下滑标记待定</h1>
+                            <p className="text-slate-400 text-lg font-normal leading-normal max-w-[280px]">犹豫的照片稍后再看</p>
+                        </div>
+                    </div>
+                    <div className="pb-16 flex flex-col items-center w-full shrink-0">
+                        <div className="flex flex-row items-center justify-center gap-3">
+                            <div className="h-1.5 w-1.5 rounded-full bg-slate-800"></div>
+                            <div className="h-1.5 w-8 rounded-full bg-brand-blue shadow-[0_0_12px_rgba(59,130,246,0.5)]"></div>
+                            <div className="h-1.5 w-1.5 rounded-full bg-slate-800"></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 3: Onboarding - Get Started ---
+        const OnboardingFinal = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex min-h-screen w-full flex-col bg-background-dark overflow-hidden">
+                    <main className="flex flex-1 flex-col items-center justify-between px-6 pb-10 pt-12">
+                        <div className="relative w-full max-w-[320px] flex items-center justify-center py-8">
+                            <div className="absolute inset-0 bg-brand-blue/10 rounded-full blur-[120px] opacity-40"></div>
+                            <div className="aspect-[3/4.2] rounded-3xl overflow-hidden shadow-2xl border border-white/5 absolute w-[85%] bg-slate-800 translate-x-12 translate-y-4 -rotate-3 scale-[0.95]">
+                                <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnVefKVd78UpWv-SPTFLyzAzxvlY-3J3jAVFuicV77iQ-qR6LdeTOD2Amxdl__egEP3dKiZTIqyfJAvbo4X1dYVtL5OZh4Kg5U1ZZgD4ZhsjHLvxcHWqsUm8xupB4ZUQPhBwZOd-kM8Wytsf4GdGjDrjuUz2QaBKG0lqPBQCQeomw-TabJIRdm41RJt96X-QyDUZZbzI3KcCw5QNtvSQOEqy4MLpkV7SurK2wX2HWCdyIPTud0GD1eYm4itQcvjp24M7EfVbIqp-gm" />
+                            </div>
+                            <div className="aspect-[3/4.2] rounded-3xl overflow-hidden shadow-2xl border border-white/5 relative w-full bg-slate-700 -rotate-[12deg] -translate-x-24 ring-1 ring-white/10">
+                                <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAksiHf0p1CwTa2UNPFnYzzBaB_rsVA1dEaKSWbG7uDzg7TmK-dudeWoZZdXr9A76RloD8XEzhD0-oyILzbS8zZnmzLetw_lpdygV4I37t2e3h0EgHhuUfEWQRjj1wuUqSFGM_fEqaAqM-BTDjmiY3MDhPkYB7U3uXk9gzdUlaSk58e3mX5eKAzj5jH4FiNygww4_ml9IPu7T5ldDsT5M6JUgop5qfU9V-dV16bWlcgAd9Beak9uimWxODMaSs971a8wtyhVrPE2FKy" />
+                                <div className="absolute top-1/2 -left-1 -translate-y-1/2 bg-brand-blue p-2 rounded-full shadow-lg border-2 border-background-dark">
+                                    <span className="material-symbols-outlined text-background-dark font-bold text-xl leading-none">chevron_left</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-center space-y-6 w-full">
+                            <div className="space-y-1">
+                                <h1 className="text-white tracking-tight text-3xl font-bold">左右滑浏览</h1>
+                                <p className="text-white/90 text-3xl font-bold">整理从未如此简单</p>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-center justify-center gap-2 px-5 py-2 bg-white/5 rounded-full border border-white/10">
+                                    <span className="material-symbols-outlined text-brand-blue text-[18px]">shield_with_heart</span>
+                                    <p className="text-slate-400 text-xs font-medium">保护隐私，所有处理均在本地完成</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="w-full max-w-sm mt-8">
+                            <button onClick={() => navigate('/main')} className="w-full bg-brand-blue hover:brightness-105 text-background-dark font-bold text-lg py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-brand-blue/20">
+                                立即开始
+                            </button>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        // --- Screen 4: Main Organizer Interface ---
+        const MainPage = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-screen w-full flex-col bg-background-dark overflow-hidden">
+                    <div className="flex items-center justify-between px-6 pt-6 pb-2 z-20">
+                        <div className="flex items-center">
+                            <span className="text-white text-2xl font-bold tracking-tight">随机</span>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <button onClick={() => navigate('/delete-list')} className="relative flex items-center justify-center text-white active:opacity-60 transition-opacity">
+                                <span className="material-symbols-outlined text-[26px]">delete</span>
+                                <span className="notification-badge">5</span>
+                            </button>
+                            <button onClick={() => navigate('/pending-list')} className="relative flex items-center justify-center text-white active:opacity-60 transition-opacity">
+                                <span className="material-symbols-outlined text-[26px]">hourglass_empty</span>
+                                <span className="notification-badge px-0.5">12</span>
+                            </button>
+                            <button onClick={() => navigate('/settings')} className="flex items-center justify-center text-white active:opacity-60 transition-opacity">
+                                <span className="material-symbols-outlined text-[26px]">settings</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="relative flex-1 flex items-center justify-center px-2 py-1 z-10">
+                        <div className="relative w-full h-full rounded-[3rem] overflow-hidden shadow-[0_35px_80px_-15px_rgba(0,0,0,0.9)] border border-white/5 bg-slate-900">
+                            <img className="absolute inset-0 w-full h-full object-cover" src="https://images.unsplash.com/photo-1644136322465-fc1a30e444ff?q=80&w=684&auto=format&fit=crop" />
+                            <div className="absolute inset-0 pointer-events-none" style={{background: 'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, transparent 20%, transparent 75%, rgba(0,0,0,0.7) 100%)'}}></div>
+                            <div className="absolute top-6 left-6 flex gap-2 pointer-events-none">
+                                <div className="glass-label"><span className="material-symbols-outlined text-[13px]" style={{fontVariationSettings: '"wght" 700'}}>hdr_on</span>HDR</div>
+                                <div className="glass-label"><span className="material-symbols-outlined text-[13px]" style={{fontVariationSettings: '"FILL" 1'}}>motion_photos_on</span>LIVE</div>
+                            </div>
+                            <div className="absolute bottom-8 left-8 flex flex-col gap-1.5 pointer-events-none" style={{textShadow: '0 2px 10px rgba(0,0,0,0.8)'}}>
+                                <div className="flex items-center gap-2 text-white"><span className="material-symbols-outlined text-[18px]">calendar_today</span><span className="text-[15px] font-semibold tracking-tight">2026/01/24</span></div>
+                                <div className="flex items-center gap-2 text-white"><span className="material-symbols-outlined text-[18px]">location_on</span><span className="text-[15px] font-semibold tracking-tight">中国 · 重庆市</span></div>
+                                <div className="flex items-center gap-2 text-white/80"><span className="material-symbols-outlined text-[18px]">database</span><span className="text-[13px] font-medium tracking-wide">4.2 MB</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-8 pt-4 pb-6 z-20 flex justify-center items-center">
+                        <div className="flex items-center gap-4 w-full max-w-[280px]">
+                            <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-white/10 border border-white/5 text-slate-100 active:scale-95 transition-all backdrop-blur-2xl shadow-lg">
+                                <span className="material-symbols-outlined text-[20px]">undo</span><span className="text-[14px] font-semibold">撤销</span>
+                            </button>
+                            <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-white/10 border border-white/5 text-slate-100 active:scale-95 transition-all backdrop-blur-2xl shadow-lg">
+                                <span className="material-symbols-outlined text-[20px]">shuffle</span><span className="text-[14px] font-semibold">随机</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="border-t border-white/5 bg-background-dark/95 backdrop-blur-3xl px-16 pb-2 pt-3 flex justify-between items-center">
+                        <button className="flex flex-col items-center gap-1 text-brand-blue"><span className="material-symbols-outlined text-[26px]" style={{fontVariationSettings: '"FILL" 1'}}>photo_library</span><span className="text-[10px] font-bold tracking-tight">整理</span></button>
+                        <button onClick={() => navigate('/albums')} className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300"><span className="material-symbols-outlined text-[26px]">collections</span><span className="text-[10px] font-medium tracking-tight">相册</span></button>
+                    </div>
+                    <div className="h-8 w-full flex justify-center items-center bg-background-dark/95"><div className="w-32 h-1.5 bg-white/10 rounded-full"></div></div>
+                </div>
+            );
+        };
+
+        // --- Screen 5: Settings ---
+        const SettingsPage = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-full w-full flex-col max-w-md mx-auto min-h-screen bg-background-dark">
+                    <div className="sticky top-0 z-50 flex items-center bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-slate-800">
+                        <button onClick={() => navigate('/main')} className="text-white flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-slate-800 transition-colors"><span className="material-symbols-outlined">arrow_back</span></button>
+                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">设置</h2>
+                    </div>
+                    <div className="flex-1 overflow-y-auto pb-8">
+                        <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider px-6 pb-2 pt-6">通用</h3>
+                        <div className="flex flex-col mx-4 bg-[#1a2c30] rounded-xl overflow-hidden">
+                            <button onClick={() => navigate('/random-settings')} className="flex items-center gap-4 px-4 min-h-[60px] justify-between group active:bg-[#23363b] transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center justify-center rounded-lg bg-brand-blue/20 shrink-0 size-10 text-brand-blue"><span className="material-symbols-outlined">shuffle</span></div>
+                                    <p className="text-slate-100 text-base font-medium">随机照片</p>
+                                </div>
+                                <span className="material-symbols-outlined text-slate-500">chevron_right</span>
+                            </button>
+                        </div>
+                        <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider px-6 pb-2 pt-6">手势操作</h3>
+                        <div className="flex flex-col mx-4 bg-[#1a2c30] rounded-xl overflow-hidden">
+                            <button onClick={() => navigate('/sensitivity-settings')} className="flex items-center gap-4 px-4 min-h-[60px] justify-between border-b border-slate-700/50">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center justify-center rounded-lg bg-brand-blue/20 shrink-0 size-10 text-brand-blue"><span className="material-symbols-outlined">swipe</span></div>
+                                    <p className="text-slate-100 text-base font-medium">手势灵敏度</p>
+                                </div>
+                                <div className="flex items-center gap-2"><span className="text-slate-500 text-sm">标准</span><span className="material-symbols-outlined text-slate-500">chevron_right</span></div>
+                            </button>
+                            <div className="flex items-center gap-4 px-4 min-h-[60px] justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center justify-center rounded-lg bg-brand-blue/20 shrink-0 size-10 text-brand-blue"><span className="material-symbols-outlined">texture</span></div>
+                                    <p className="text-slate-100 text-base font-medium">震动反馈</p>
+                                </div>
+                                <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input defaultChecked className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-[#526062] checked:border-brand-blue transition-all duration-300 right-0" type="checkbox" />
+                                    <label className="toggle-label block overflow-hidden h-6 rounded-full bg-brand-blue cursor-pointer transition-colors duration-300"></label>
+                                </div>
+                            </div>
+                        </div>
+                        <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider px-6 pb-2 pt-6">隐私与安全</h3>
+                        <div className="flex flex-col mx-4 bg-[#1a2c30] rounded-xl overflow-hidden"><button className="flex items-center gap-4 px-4 min-h-[60px] justify-between"><div className="flex items-center gap-4"><div className="flex items-center justify-center rounded-lg bg-brand-blue/20 shrink-0 size-10 text-brand-blue"><span className="material-symbols-outlined">storage</span></div><p className="text-slate-100 text-base font-medium">本地存储管理</p></div><span className="material-symbols-outlined text-slate-500">chevron_right</span></button></div>
+                        <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider px-6 pb-2 pt-6">支持</h3>
+                        <div className="flex flex-col mx-4 bg-[#1a2c30] rounded-xl overflow-hidden">
+                            <button className="flex items-center gap-4 px-4 min-h-[60px] justify-between border-b border-slate-700/50"><div className="flex items-center gap-4"><div className="flex items-center justify-center rounded-lg bg-brand-blue/20 shrink-0 size-10 text-brand-blue"><span className="material-symbols-outlined">help</span></div><p className="text-slate-100 text-base font-medium">帮助与反馈</p></div><span className="material-symbols-outlined text-slate-500">chevron_right</span></button>
+                            <button onClick={() => navigate('/about')} className="flex items-center gap-4 px-4 min-h-[60px] justify-between">
+                                <div className="flex items-center gap-4"><div className="flex items-center justify-center rounded-lg bg-brand-blue/20 shrink-0 size-10 text-brand-blue"><span className="material-symbols-outlined">info</span></div><p className="text-slate-100 text-base font-medium">关于应用</p></div>
+                                <div className="flex items-center gap-2"><span className="text-slate-500 text-sm">v2.4.0</span><span className="material-symbols-outlined text-slate-500">chevron_right</span></div>
+                            </button>
+                        </div>
+                        <div className="flex justify-center pb-8 pt-8"><p className="text-xs text-slate-600">Photo Organizer Pro © 2024</p></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 6: Pending List ---
+        const PendingList = () => {
+            const navigate = useNavigate();
+            const photos = [
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuCj3QPxKlvjJuP9jhXOeXwgP0pgALBV6E9OuISlthyPH9n1J6jwxw047ftPy6wJPShFB5DKLM9b7PPppvdiMLRuEuKFW5CI58baAV8oWDJQN3zfIsaGUwPK-77Sg0WZDRze04WNJmlX4hWhmbJbU7s9XA7sBkd6AOybIxLiRrTxqekAA1BlZBjiE_Uiah5BfJAZ7kP3INwTuTOZzZrHIRC1Hvo2i-ybWEHYDuiI6MQaPKQOtCH_XZVBge4XjIC_tgN1JaSNL48l_N8b",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuAF_9fzflIHpdsd_hicUp9-Eau4I5gUsKIDUSJu2ffSem3n7nb4TaEQxBZX5Lww7EZndU7qtpkJ0RV16ka9dCoo5vt1xuy4sz5p2dzfIvAHgz0EcmsKoopcM_He4XEazUxnR34NMSfBvR7G8CVYXqwnMMl2_OKwnkdQcIDZj2af9p6mrXc695pchkZZaL4tlD1TPRgbWONQW0wKHUViFS3iiTi8kmNhj685oFt_f5voRohWnguSCBt4swbEw-d8k2KFH7AKDk34cISB",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuB22QL74InAp7kFO6l5nfATX7vzKaZq5TkhHzAulKXSXlqlUEFWKlZSqOUlLK9m3HdFc38nbRe0hqY8HcIHyzZPvVlOIcoj_DzKaWx9y27eryfeOEnc8pkwnan4f_ERF_9kuYi0dI5K_6i2DneA5moVb2937NXkvnl9yUoawTF7JcPHaJw7p7mCLdouhSLFf6A3DxJF9S7MsiqGwA4IzMwzvxrJm5fG8aQv58oI8lxRbku27SlHOUKN0oQtENQE3fs4oUZNOKMZv95J",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuAaTKbJKcYcwlfcLV-cPlVSQjfRfo6Zwp4Tu3Cl8rx1L_biy608J1P2UBWDzlO2ha7_j7dMeQ9_NYXeGHHuSqK8LgRpKx3IgPtEPZPygwJ0u9RU05O3a7mSVCmS9nUhsK60Fz6003CF6rGADcFQ7dmRuS_2lv0UiIEmfWYmyMTYZy82PUqrjCG3YmUGIhkE0zp2N9rkBmN07nXcqxvS_fvO2rFlb-csm9tnT101DqwKPPZwAuBKokXRf_NbYdefHeyl1lOGbIXXkkgr",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuDt_LS5vU3w9wZj3xxJjwSWLKXJpLj8F5RDZYRBAnx-eGuciCDdEyruK2TuB4KjnWulr_O2j_eXFrPFz2jNXHJorEEcSLDbT6hMEVs1xBXKg0Ig2mpeDhaQe86BN1FkSXPGji5tKQACcsX9ey-MWAmpkZTtIDBytZkeijv-7ZTFg_CgOoa0clZtTrGDFLTfdVB-czHPOjHl2BLn00LGij2QMIKma-8xug5qJ0Ksz9tm4HLUaUv6WN1s49Dh0j5ikgW3f0B96n9H2Z2s",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuDvKFnj87V4DgkcYdusHZ7N8wu4awRGQvufwvErR_Y06xlyvguYXbHzTJS0m3xavOLmP1aMmjF4e-daTBR9zzZh7q-_oBmBOALpP-3INYLRd5y_GnyNfQZoLfP-6_zpw0bF1GUNKt6rkAxpFgtboSeZ0X0ehXutn_O7oIb4LHsF3fovENqhhWDudoxn1sIapAdCzruHvjJ9WmbtbJbG3lFu4xcGHGStaKQ9fNZf_flw-LnPkmaB3NO68Xzt4XCpJzd3zM72RYmVJPv8",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuCj3QPxKlvjJuP9jhXOeXwgP0pgALBV6E9OuISlthyPH9n1J6jwxw047ftPy6wJPShFB5DKLM9b7PPppvdiMLRuEuKFW5CI58baAV8oWDJQN3zfIsaGUwPK-77Sg0WZDRze04WNJmlX4hWhmbJbU7s9XA7sBkd6AOybIxLiRrTxqekAA1BlZBjiE_Uiah5BfJAZ7kP3INwTuTOZzZrHIRC1Hvo2i-ybWEHYDuiI6MQaPKQOtCH_XZVBge4XjIC_tgN1JaSNL48l_N8b",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuAF_9fzflIHpdsd_hicUp9-Eau4I5gUsKIDUSJu2ffSem3n7nb4TaEQxBZX5Lww7EZndU7qtpkJ0RV16ka9dCoo5vt1xuy4sz5p2dzfIvAHgz0EcmsKoopcM_He4XEazUxnR34NMSfBvR7G8CVYXqwnMMl2_OKwnkdQcIDZj2af9p6mrXc695pchkZZaL4tlD1TPRgbWONQW0wKHUViFS3iiTi8kmNhj685oFt_f5voRohWnguSCBt4swbEw-d8k2KFH7AKDk34cISB",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuB22QL74InAp7kFO6l5nfATX7vzKaZq5TkhHzAulKXSXlqlUEFWKlZSqOUlLK9m3HdFc38nbRe0hqY8HcIHyzZPvVlOIcoj_DzKaWx9y27eryfeOEnc8pkwnan4f_ERF_9kuYi0dI5K_6i2DneA5moVb2937NXkvnl9yUoawTF7JcPHaJw7p7mCLdouhSLFf6A3DxJF9S7MsiqGwA4IzMwzvxrJm5fG8aQv58oI8lxRbku27SlHOUKN0oQtENQE3fs4oUZNOKMZv95J"
+            ];
+            return (
+                <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-40 bg-background-dark">
+                    <header className="sticky top-0 z-10 flex items-center justify-between bg-background-dark/80 backdrop-blur-md px-4 py-4 border-b border-slate-800">
+                        <button onClick={() => navigate('/main')} className="flex items-center justify-center size-10 rounded-full hover:bg-slate-800 transition-colors"><span className="material-symbols-outlined text-white">arrow_back_ios_new</span></button>
+                        <h1 className="text-lg font-bold tracking-tight">待定清单</h1>
+                        <div className="min-w-10 flex items-center justify-end"><span className="text-sm font-semibold text-brand-blue">12 张</span></div>
+                    </header>
+                    <div className="px-4 pt-6 pb-2">
+                        <h2 className="text-2xl font-bold">待确定的照片</h2>
+                        <p className="text-sm text-slate-400 mt-1">下滑选中的照片将移至此处，你可以进行最终决策。</p>
+                    </div>
+                    <main className="grid grid-cols-3 gap-1 p-1 mt-4">
+                        {photos.map((src, i) => (
+                            <div key={i} className="relative aspect-square overflow-hidden">
+                                <img className="w-full h-full object-cover rounded-sm" src={src} />
+                                <div className="absolute top-1.5 right-1.5 bg-brand-blue text-white rounded-full size-6 flex items-center justify-center shadow-lg">
+                                    <span className="material-symbols-outlined text-[16px] leading-none" style={{fontVariationSettings: "'FILL' 1"}}>hourglass_empty</span>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+                    <div className="fixed bottom-0 left-0 right-0 bg-background-dark/95 backdrop-blur-md border-t border-slate-800 p-4 pb-10 z-20">
+                        <div className="flex gap-3">
+                            <button className="flex-1 h-16 bg-brand-blue text-white rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-lg shadow-brand-blue/20">
+                                <span className="material-symbols-outlined text-[24px]">unarchive</span>移回相册 (12)
+                            </button>
+                            <button className="flex-1 h-16 bg-danger text-white rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-lg shadow-danger/20">
+                                <span className="material-symbols-outlined text-[24px]">delete</span>确认删除 (12)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 7: Delete List ---
+        const DeleteList = () => {
+            const navigate = useNavigate();
+            const photos = [
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuCj3QPxKlvjJuP9jhXOeXwgP0pgALBV6E9OuISlthyPH9n1J6jwxw047ftPy6wJPShFB5DKLM9b7PPppvdiMLRuEuKFW5CI58baAV8oWDJQN3zfIsaGUwPK-77Sg0WZDRze04WNJmlX4hWhmbJbU7s9XA7sBkd6AOybIxLiRrTxqekAA1BlZBjiE_Uiah5BfJAZ7kP3INwTuTOZzZrHIRC1Hvo2i-ybWEHYDuiI6MQaPKQOtCH_XZVBge4XjIC_tgN1JaSNL48l_N8b",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuAF_9fzflIHpdsd_hicUp9-Eau4I5gUsKIDUSJu2ffSem3n7nb4TaEQxBZX5Lww7EZndU7qtpkJ0RV16ka9dCoo5vt1xuy4sz5p2dzfIvAHgz0EcmsKoopcM_He4XEazUxnR34NMSfBvR7G8CVYXqwnMMl2_OKwnkdQcIDZj2af9p6mrXc695pchkZZaL4tlD1TPRgbWONQW0wKHUViFS3iiTi8kmNhj685oFt_f5voRohWnguSCBt4swbEw-d8k2KFH7AKDk34cISB",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuB22QL74InAp7kFO6l5nfATX7vzKaZq5TkhHzAulKXSXlqlUEFWKlZSqOUlLK9m3HdFc38nbRe0hqY8HcIHyzZPvVlOIcoj_DzKaWx9y27eryfeOEnc8pkwnan4f_ERF_9kuYi0dI5K_6i2DneA5moVb2937NXkvnl9yUoawTF7JcPHaJw7p7mCLdouhSLFf6A3DxJF9S7MsiqGwA4IzMwzvxrJm5fG8aQv58oI8lxRbku27SlHOUKN0oQtENQE3fs4oUZNOKMZv95J",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuAaTKbJKcYcwlfcLV-cPlVSQjfRfo6Zwp4Tu3Cl8rx1L_biy608J1P2UBWDzlO2ha7_j7dMeQ9_NYXeGHHuSqK8LgRpKx3IgPtEPZPygwJ0u9RU05O3a7mSVCmS9nUhsK60Fz6003CF6rGADcFQ7dmRuS_2lv0UiIEmfWYmyMTYZy82PUqrjCG3YmUGIhkE0zp2N9rkBmN07nXcqxvS_fvO2rFlb-csm9tnT101DqwKPPZwAuBKokXRf_NbYdefHeyl1lOGbIXXkkgr",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuDt_LS5vU3w9wZj3xxJjwSWLKXJpLj8F5RDZYRBAnx-eGuciCDdEyruK2TuB4KjnWulr_O2j_eXFrPFz2jNXHJorEEcSLDbT6hMEVs1xBXKg0Ig2mpeDhaQe86BN1FkSXPGji5tKQACcsX9ey-MWAmpkZTtIDBytZkeijv-7ZTFg_CgOoa0clZtTrGDFLTfdVB-czHPOjHl2BLn00LGij2QMIKma-8xug5qJ0Ksz9tm4HLUaUv6WN1s49Dh0j5ikgW3f0B96n9H2Z2s",
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuDvKFnj87V4DgkcYdusHZ7N8wu4awRGQvufwvErR_Y06xlyvguYXbHzTJS0m3xavOLmP1aMmjF4e-daTBR9zzZh7q-_oBmBOALpP-3INYLRd5y_GnyNfQZoLfP-6_zpw0bF1GUNKt6rkAxpFgtboSeZ0X0ehXutn_O7oIb4LHsF3fovENqhhWDudoxn1sIapAdCzruHvjJ9WmbtbJbG3lFu4xcGHGStaKQ9fNZf_flw-LnPkmaB3NO68Xzt4XCpJzd3zM72RYmVJPv8"
+            ];
+            return (
+                <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background-dark">
+                    <header className="sticky top-0 z-10 flex items-center justify-between bg-background-dark/80 backdrop-blur-md px-4 py-4 border-b border-slate-800">
+                        <button onClick={() => navigate('/main')} className="flex items-center justify-center size-10 rounded-full hover:bg-slate-800 transition-colors"><span className="material-symbols-outlined text-white">arrow_back_ios_new</span></button>
+                        <h1 className="text-lg font-bold tracking-tight">待删除清单</h1>
+                        <div className="size-10"></div>
+                    </header>
+                    <div className="px-4 pt-6 pb-2">
+                        <h2 className="text-2xl font-bold">待删除的照片</h2>
+                        <p className="text-sm text-slate-400 mt-1">上滑选中的照片将移至此处，确认后将永久删除。</p>
+                    </div>
+                    <main className="grid grid-cols-3 gap-1 p-1 mt-4">
+                        {photos.map((src, i) => (
+                            <div key={i} className="relative aspect-square overflow-hidden group">
+                                <img className="w-full h-full object-cover rounded-sm" src={src} />
+                                <div className="absolute top-1 right-1 bg-danger text-white rounded-full size-6 flex items-center justify-center shadow-lg">
+                                    <span className="material-symbols-outlined text-[16px] leading-none" style={{fontVariationSettings: "'FILL' 1"}}>delete</span>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+                    <div className="fixed bottom-0 left-0 right-0 bg-background-dark border-t border-slate-800 p-4 pb-8 space-y-3">
+                        <button className="w-full h-14 bg-danger text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+                            <span className="material-symbols-outlined">delete_forever</span>确认删除 (6)
+                        </button>
+                        <button className="w-full h-12 bg-slate-800 text-slate-100 rounded-xl font-semibold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+                            <span className="material-symbols-outlined">undo</span>全部撤回
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 8: Albums ---
+        const AlbumsPage = () => {
+            const navigate = useNavigate();
+            const albums = [
+                { title: "所有照片", count: "2,418", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBs6nBDgGziyjomao8trJyWp4xbtXWphG7c0apmgQtRqtpdqR2c9i5SHxG378cVcfG5ViDojwjKe_hN_-K2-hi-IV3ga8nYPvDhNAeDKKLkoWBOJJi4bYtuV_57GQj4hN9ynzEsnGXegbq80mA8iioXh_VvRg9eXcUBx9rzj54NEz1PHwgbu4l70m8i5PyjNFDpzQ3mg2eHbI8CwGL-J3K-rDhHs7ddJAQcrhiEPQUHpba9rvv7UJ0S9HlzDAaMYH_USJ4Om9g1BOF_" },
+                { title: "最近删除", count: "124", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDm4vKE5aAejCTveIJOiHbjuBIyq1wsiZLg_Sp4OH-MHX0b5fuFRc3O7BmC73Wz1sLmU8eu4ecs0Dni2_XTKkkbYhEGPLsQ1bo5EHVyafDLebmX2jOg-FwPjGIjQPskaS8h5pQYFu1rY8yuDwTL4kbfSxtyCmDGMjPfPlnCzfc-yvW3ZtBNcch9CqLOpsu7qYJ6_zhPoYpu2ElV8CCzab1PO60WcdvzORWzZ58WDLvtlauuorpvCSjDpha4EI5Q9PP3vp56xQhG69yb" },
+                { title: "家庭", count: "856", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBh45PBRz4i7kQ-knbaDQSWY2wHmJI9tzvU2ySbRu9SHYf-JXpBa0JEuJ4sKicIteyQmfNDKw6ASE7oE8RgFNRpFBA3u7xXdUphIUXOns8sH5S80-4o4nrEiSZoTSLdE-v27JAuJXWkopAiVND-32gc6DA_czsuEGX7Q90m_SB7s2Ij3nSb62jwKO7ZUEqCz_sRkrkt0-wYy1DCgDz_lUQLxtpytBOgPg7Pq34Xxv-ju8ciF_G5GiTNAr4IrTz9yjfoJjSP1wGha7dp" },
+                { title: "旅游", count: "342", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDMxvlQLg9S2dFphk2cz6jS2fWPr-XNdGYKMIXXgJ5L2miXmIBN0Z2MJBudT2ahC1FrAu6mPOVEhAkm7rOzrdBl4FbSIW_lkbWrLS92CowaBJY2psRvBIXTDL1ddSeABWo2LTQfaWJIjD5UtfpD-gQoVvKtUw5Ub3RV7xOLReQ_QUMF5dxX_d2GKOTUUUyKblVJXXLwfSc-xTqxds0wLyVl672cd2YUEXPRmD93igEC0tswo9j264EBjTpIzinlZJTUFOi0nqXSMJUp" },
+                { title: "个人收藏", count: "56", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuATWIxWwcoeXgr0Epl8rfx8HamfZY9Pd6QmmORh4YBcqgAGmLqNaSLY7qxsC0DzNcC_F57IMfhkz3XYP2SPEvwFLSTyC4-bh1trYohhIDMxr9dJllJwIQoapwNJmuRhk8obzXgRGWrZu2whgKdYl0Zvgbwo09uSj5DQKzgVl_DQCli70sfXb47gOp8aqTSymp7NdCXbi4FHc0mfhuKEtabo95GzzwI-3KYo6utGBlffTdhoTuUIzl46OwNvSI_01pTAkOlEvBYyzvkx" }
+            ];
+            return (
+                <div className="relative flex h-screen w-full flex-col bg-background-dark overflow-hidden">
+                    <div className="flex items-center justify-between px-6 pt-6 pb-4 z-20">
+                        <div className="flex items-center"><span className="text-white text-2xl font-bold tracking-tight">相册</span></div>
+                        <div className="flex items-center gap-5">
+                            <button className="flex items-center justify-center text-white"><span className="material-symbols-outlined text-[26px]">search</span></button>
+                            <button className="flex items-center justify-center text-white"><span className="material-symbols-outlined text-[26px]">add</span></button>
+                            <button className="text-brand-blue text-[17px] font-medium">选择</button>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-6 pb-24">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+                            {albums.map((album, idx) => (
+                                <div key={idx} className="flex flex-col gap-2 active:scale-[0.98] transition-transform">
+                                    <img className="aspect-square w-full object-cover rounded-3xl shadow-lg border border-white/5" src={album.img} />
+                                    <div className="px-1">
+                                        <h3 className="text-white font-bold text-[15px] leading-tight">{album.title}</h3>
+                                        <p className="text-slate-500 text-[13px] font-medium">{album.count}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="aspect-square w-full rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-slate-500">
+                                <span className="material-symbols-outlined text-[32px]">add_circle</span>
+                                <span className="text-[12px] font-medium">新建相册</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 z-30">
+                        <div className="border-t border-white/5 bg-background-dark/95 backdrop-blur-3xl px-16 pb-2 pt-3 flex justify-between items-center">
+                            <button onClick={() => navigate('/main')} className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300"><span className="material-symbols-outlined text-[26px]">photo_library</span><span className="text-[10px] font-medium tracking-tight">整理</span></button>
+                            <button className="flex flex-col items-center gap-1 text-brand-blue"><span className="material-symbols-outlined text-[26px]" style={{fontVariationSettings: "'FILL' 1"}}>collections</span><span className="text-[10px] font-bold tracking-tight">相册</span></button>
+                        </div>
+                        <div className="h-8 w-full flex justify-center items-center bg-background-dark/95"><div className="w-32 h-1.5 bg-white/10 rounded-full"></div></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 9: Sensitivity Settings ---
+        const SensitivitySettings = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden bg-background-dark">
+                    <div className="flex items-center p-4 pb-2 justify-between">
+                        <div onClick={() => navigate('/settings')} className="flex size-10 items-center justify-center rounded-full hover:bg-slate-800 transition-colors cursor-pointer"><span className="material-symbols-outlined text-white">arrow_back</span></div>
+                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">手势灵敏度设置</h2>
+                    </div>
+                    <div className="px-6 pt-8 pb-4">
+                        <h3 className="text-white tracking-tight text-2xl font-bold leading-tight text-center">设置操作灵敏度</h3>
+                        <p className="text-slate-400 text-base font-normal leading-normal pt-2 text-center">调整滑块以寻找最适合你的操作手感。</p>
+                    </div>
+                    <div className="px-6 py-8">
+                        <div className="bg-slate-800/40 p-6 rounded-2xl border border-slate-800">
+                            <div className="flex items-center justify-between mb-6">
+                                <p className="text-white text-base font-medium">灵敏度: <span className="text-brand-blue">中</span></p>
+                                <p className="text-brand-blue text-lg font-bold">50</p>
+                            </div>
+                            <div className="relative flex items-center h-8">
+                                <div className="h-2 w-full rounded-full bg-slate-700 overflow-hidden"><div className="h-full w-1/2 bg-brand-blue"></div></div>
+                                <div className="absolute left-1/2 -translate-x-1/2 size-6 rounded-full bg-white shadow-lg border-2 border-brand-blue flex items-center justify-center"><div className="size-2 rounded-full bg-brand-blue"></div></div>
+                            </div>
+                            <div className="flex justify-between mt-4"><span className="text-slate-500 text-xs font-semibold">低</span><span className="text-slate-500 text-xs font-semibold">高</span></div>
+                        </div>
+                    </div>
+                    <div className="px-6 flex-1 flex flex-col items-center">
+                        <div className="relative w-full max-w-[280px] aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group">
+                            <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUkTJ1Y85bHrAA0M9ytQbJlnAI_BSg8okU1PRAydG0yz2AYbgrwbP9jA3wotAglZeyXn195zoDLVvF1mHmjpBNWMJsHOYSIOQN_ao0WlRxLP-b-MOBlp7mLz74h__wzl8P1irpwP-yXywla9-f1wVUjY2uNtDWV2vYxkAHtmABB8GbwB_RTE982PW-XYeHtId01D_FPe_lVyXe9kmocoBUo-BjZhHMMQReN_lo7hrI7sDNwjNWf7-ZjnTBgV2qnY6I261fwt1LygSh" />
+                            <div className="absolute inset-0 flex flex-col items-center pointer-events-none py-10">
+                                <div className="absolute top-[10%] flex flex-col items-center"><span className="material-symbols-outlined text-red-500 text-6xl glow-red">keyboard_double_arrow_up</span></div>
+                                <div className="absolute bottom-[18%] flex flex-col items-center"><span className="material-symbols-outlined text-brand-blue text-6xl glow-blue">keyboard_double_arrow_down</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        <button onClick={() => navigate('/settings')} className="w-full bg-brand-blue hover:bg-brand-blue/90 text-background-dark font-bold py-4 rounded-xl shadow-lg shadow-brand-blue/20">确认并保存</button>
+                        <button className="w-full mt-4 text-slate-400 font-medium py-2 text-sm">恢复默认设置</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 10: Random Settings ---
+        const RandomSettings = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-screen w-full flex-col overflow-x-hidden bg-background-dark">
+                    <div className="flex items-center p-4 pb-2 sticky top-0 z-10 border-b border-slate-800">
+                        <div onClick={() => navigate('/settings')} className="text-white flex size-10 shrink-0 items-center justify-center cursor-pointer"><span className="material-symbols-outlined">arrow_back</span></div>
+                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">随机照片设置</h2>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                        <h3 className="text-brand-blue text-sm font-bold leading-tight tracking-widest px-4 pb-2 pt-6 uppercase">常规选项</h3>
+                        <div className="space-y-1 bg-background-dark/50">
+                            {[
+                                { icon: "favorite", text: "包含个人收藏" },
+                                { icon: "videocam", text: "包含视频" },
+                                { icon: "calendar_today", text: "仅限过去一年的照片" }
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center gap-4 px-4 min-h-[64px] justify-between border-b border-slate-800/50">
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-brand-blue flex items-center justify-center rounded-lg bg-brand-blue/10 shrink-0 size-10"><span className="material-symbols-outlined">{item.icon}</span></div>
+                                        <p className="text-white text-base font-medium">{item.text}</p>
+                                    </div>
+                                    <div className="shrink-0">
+                                        <label className="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full bg-brand-blue p-0.5"><div className="h-full w-[27px] rounded-full bg-white shadow-md translate-x-5"></div></label>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <h3 className="text-brand-blue text-sm font-bold leading-tight tracking-widest px-4 pb-2 pt-8 uppercase">随机照片数量</h3>
+                        <div className="px-8 py-10 bg-background-dark/50">
+                            <input className="custom-slider" max="50" min="15" type="range" defaultValue="25" />
+                            <div className="flex justify-between mt-6 px-1 text-sm text-slate-500 font-medium"><span>15</span><span>50</span></div>
+                        </div>
+                        <div className="p-6 mt-4 flex flex-col gap-4">
+                            <button className="w-full h-14 bg-brand-blue text-slate-900 font-bold rounded-xl shadow-lg active:scale-[0.98]">重置随机序列</button>
+                            <p className="text-center text-slate-500 text-xs px-8">重置后将清除当前的随机浏览记录，所有符合条件的照片将重新进入随机池。</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 11: About ---
+        const AboutPage = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex h-screen w-full flex-col bg-background-dark overflow-x-hidden">
+                    <div className="flex items-center p-4 pb-2 justify-between border-b border-slate-800">
+                        <div onClick={() => navigate('/settings')} className="text-white flex size-12 shrink-0 items-center cursor-pointer"><span className="material-symbols-outlined text-2xl">arrow_back_ios</span></div>
+                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">关于应用</h2>
+                    </div>
+                    <div className="flex p-10 flex-col items-center">
+                        <div className="relative w-40 h-40 bg-[#080c0d] rounded-[32px] shadow-2xl border border-slate-800 flex items-center justify-center overflow-hidden mb-8">
+                            <div className="absolute top-4 flex flex-col items-center"><span className="material-symbols-outlined text-primary text-2xl font-bold">keyboard_double_arrow_up</span></div>
+                            <div className="absolute bottom-4 flex flex-col items-center"><span className="material-symbols-outlined text-brand-blue text-2xl font-bold">keyboard_double_arrow_down</span></div>
+                            <div className="relative z-10 w-16 h-16 bg-white rounded-xl shadow-lg flex items-center justify-center rotate-[-2deg] border-2 border-slate-200/50">
+                                <span className="material-symbols-outlined text-slate-800 text-4xl" style={{fontVariationSettings: "'FILL' 1"}}>image</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                            <p className="text-white text-2xl font-bold tracking-tight">拉拖拖（Latoto）</p>
+                            <p className="text-slate-400 text-sm font-medium">版本 v1.2.0</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-1 px-4">
+                        {[
+                            { icon: "update", text: "检查更新", tag: "New" },
+                            { icon: "shield", text: "隐私政策" },
+                            { icon: "description", text: "服务协议" },
+                            { icon: "language", text: "官方网站" }
+                        ].map((item, i) => (
+                            <div key={i} className="flex items-center gap-4 bg-slate-800/30 px-4 min-h-[60px] justify-between rounded-2xl hover:bg-slate-800/60 transition-colors cursor-pointer group">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center"><span className="material-symbols-outlined text-brand-blue text-[22px]">{item.icon}</span></div>
+                                    <p className="text-white text-base font-medium">{item.text}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {item.tag && <span className="text-[10px] font-bold text-brand-blue bg-brand-blue/10 border border-brand-blue/20 px-2 py-0.5 rounded-full uppercase">{item.tag}</span>}
+                                    <span className="material-symbols-outlined text-slate-600 group-hover:text-brand-blue">chevron_right</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex-grow"></div>
+                    <div className="flex flex-col items-center justify-center p-8 gap-2">
+                        <p className="text-slate-500 text-xs">Copyright © 2026 照片整理工作室</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App Wrapper ---
+        const App = () => {
+            return (
+                <MemoryRouter>
+                    <Routes>
+                        <Route path="/" element={<OnboardingSwipeUp />} />
+                        <Route path="/onboarding-2" element={<OnboardingSwipeDown />} />
+                        <Route path="/onboarding-3" element={<OnboardingFinal />} />
+                        <Route path="/main" element={<MainPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/pending-list" element={<PendingList />} />
+                        <Route path="/delete-list" element={<DeleteList />} />
+                        <Route path="/albums" element={<AlbumsPage />} />
+                        <Route path="/sensitivity-settings" element={<SensitivitySettings />} />
+                        <Route path="/random-settings" element={<RandomSettings />} />
+                        <Route path="/about" element={<AboutPage />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
